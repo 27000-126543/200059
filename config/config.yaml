@@ -1,0 +1,194 @@
+system:
+  name: "企业级数据质量自动化监控与治理系统"
+  version: "1.0.0"
+  timezone: "Asia/Shanghai"
+
+database:
+  type: "sqlite"
+  path: "./data/dq_governance.db"
+
+business_systems:
+  order_system:
+    name: "订单系统"
+    db_type: "mysql"
+    connection: "mysql://user:pass@localhost:3306/orders"
+    tables:
+      - name: "orders"
+      - name: "order_items"
+      - name: "payments"
+    data_domain: "交易域"
+    owner: "张三"
+    dept: "交易部"
+
+  finance_system:
+    name: "财务系统"
+    db_type: "postgresql"
+    connection: "postgresql://user:pass@localhost:5432/finance"
+    tables:
+      - name: "general_ledger"
+      - name: "expense_reports"
+      - name: "invoices"
+    data_domain: "财务域"
+    owner: "李四"
+    dept: "财务部"
+
+  hr_system:
+    name: "人事系统"
+    db_type: "oracle"
+    connection: "oracle://user:pass@localhost:1521/hr"
+    tables:
+      - name: "employees"
+      - name: "departments"
+      - name: "attendance"
+    data_domain: "人事域"
+    owner: "王五"
+    dept: "人力资源部"
+
+quality_rules:
+  completeness:
+    description: "数据完整性检查"
+    weight: 30
+    rules:
+      - field: "id"
+        check: "not_null"
+        severity: "critical"
+      - field: "created_at"
+        check: "not_null"
+        severity: "high"
+      - field: "updated_at"
+        check: "not_null"
+        severity: "medium"
+
+  consistency:
+    description: "数据一致性检查"
+    weight: 40
+    rules:
+      - name: "订单金额一致性"
+        expression: "order_amount == sum(item_amount)"
+        severity: "critical"
+      - name: "财务借贷平衡"
+        expression: "debit == credit"
+        severity: "critical"
+
+  timeliness:
+    description: "数据时效性检查"
+    weight: 30
+    rules:
+      - name: "数据延迟阈值"
+        max_hours: 24
+        severity: "high"
+      - name: "更新频率检查"
+        expected_frequency: "daily"
+        severity: "medium"
+
+scoring:
+  pass_threshold: 80
+  warning_threshold: 90
+  critical_threshold: 60
+  weight_completeness: 30
+  weight_consistency: 40
+  weight_timeliness: 30
+
+sensitive_data:
+  patterns:
+    id_card:
+      pattern: '^\d{17}[\dXx]$'
+      description: "身份证号码"
+      level: "high"
+    phone:
+      pattern: '^1[3-9]\d{9}$'
+      description: "手机号码"
+      level: "medium"
+    email:
+      pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+      description: "电子邮箱"
+      level: "low"
+    bank_card:
+      pattern: '^\d{16,19}$'
+      description: "银行卡号"
+      level: "high"
+    address:
+      keywords: ["地址", "住址", "家庭地址"]
+      description: "地址信息"
+      level: "medium"
+
+  masking_rules:
+    high:
+      method: "full_mask"
+      visible_chars: 0
+    medium:
+      method: "partial_mask"
+      visible_start: 3
+      visible_end: 4
+    low:
+      method: "partial_mask"
+      visible_start: 2
+      visible_end: 2
+
+  dept_permissions:
+    财务部:
+      allowed_levels: ["low", "medium"]
+      special_fields: ["bank_card"]
+    人力资源部:
+      allowed_levels: ["low", "medium", "high"]
+      special_fields: ["id_card", "phone"]
+    技术部:
+      allowed_levels: ["low"]
+      special_fields: []
+
+ticket_system:
+  auto_assign: true
+  priority_rules:
+    critical:
+      sla_hours: 24
+      escalation_level: 3
+    high:
+      sla_hours: 72
+      escalation_level: 2
+    medium:
+      sla_hours: 168
+      escalation_level: 1
+    low:
+      sla_hours: 336
+      escalation_level: 0
+
+  assignees:
+    交易域: "张经理"
+    财务域: "李经理"
+    人事域: "王经理"
+
+scheduler:
+  daily_scan_time: "02:00"
+  daily_report_time: "03:00"
+  weekly_report_day: "monday"
+  weekly_report_time: "08:00"
+  governance_check_interval: 30
+
+reporting:
+  export_formats: ["pdf", "excel"]
+  pdf_company_name: "XX企业数据管理部"
+  recipients:
+    daily: ["data_governance@company.com"]
+    weekly: ["compliance@company.com", "cio@company.com"]
+
+notification:
+  email:
+    smtp_server: "smtp.company.com"
+    smtp_port: 587
+    sender: "dq_system@company.com"
+
+governance:
+  low_score_months: 1
+  low_score_threshold: 80
+  project_managers: ["赵总监", "钱经理"]
+
+logging:
+  level: "INFO"
+  file_path: "./logs"
+  max_file_size: "10MB"
+  backup_count: 30
+  retention_days: 90
+
+lineage:
+  enable: true
+  storage: "database"
