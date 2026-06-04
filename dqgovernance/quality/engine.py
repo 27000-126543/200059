@@ -503,31 +503,40 @@ class QualityRuleEngine:
         self, score: QualityScore, issues: List[QualityIssue]
     ):
         try:
-            existing = self.db.execute_query(
-                "SELECT id FROM quality_scores WHERE system_code = ? AND table_name = ? AND scan_date = ?",
-                (score.system_code, score.table_name, score.scan_date.isoformat()),
+            score_dict = score.to_dict()
+            self.db.execute_query(
+                """
+                INSERT OR REPLACE INTO quality_scores 
+                (system_code, table_name, completeness_score, consistency_score, timeliness_score, 
+                 overall_score, scan_date, total_records, issue_count)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    score_dict["system_code"],
+                    score_dict["table_name"],
+                    score_dict["completeness_score"],
+                    score_dict["consistency_score"],
+                    score_dict["timeliness_score"],
+                    score_dict["overall_score"],
+                    score_dict["scan_date"],
+                    score_dict["total_records"],
+                    score_dict["issue_count"],
+                ),
+                fetch=False,
             )
-            if existing:
-                self.db.update_record(
-                    "quality_scores",
-                    score.to_dict(),
-                    "id = ?",
-                    (existing[0]["id"],),
-                )
-            else:
-                self.db.insert_record("quality_scores", score.to_dict())
 
             for issue in issues:
+                issue_dict = issue.to_dict()
                 existing_issue = self.db.execute_query(
                     "SELECT id FROM quality_issues WHERE issue_code = ?",
                     (issue.issue_code,),
                 )
                 if not existing_issue:
-                    self.db.insert_record("quality_issues", issue.to_dict())
+                    self.db.insert_record("quality_issues", issue_dict)
                 else:
                     self.db.update_record(
                         "quality_issues",
-                        issue.to_dict(),
+                        issue_dict,
                         "id = ?",
                         (existing_issue[0]["id"],),
                     )
